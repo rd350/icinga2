@@ -1,0 +1,58 @@
+#!/usr/bin/env python3
+
+"""
+k8s application healthchecks
+run example: ./k8s-app-healthchecks status https://example.com
+"""
+
+import argparse
+import re
+import sys
+import subprocess
+import requests
+
+
+NAGIOS_OK = 0
+NAGIOS_WARNING = 1
+NAGIOS_CRITICAL = 2
+NAGIOS_UNKNOWN = 3
+
+
+class Healthchecks():
+
+  def __init__(self, api, ssl):
+    self.api = api
+    self.ssl = ssl
+    
+  def status(self):
+    headers = {'Accept': 'application/json',}
+    response = requests.get(self.api, verify=self.ssl, headers=headers)
+    
+    if response:
+        return((NAGIOS_OK, response.text + '\nOK'))
+
+    else:
+        return((NAGIOS_CRITICAL, response.text + '\nHealthcheck/s broken'))
+
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('check', choices=['status'])
+    parser.add_argument('api', default=None, help='Add the healthcheck url')
+    parser.add_argument('--ssl', default=True, help='SSL certificate verification')
+    args = parser.parse_args()
+
+checker = Healthchecks(args.api, args.ssl)
+
+try:
+    if args.check == 'status':
+        return_code, description = checker.status() 
+    else:
+        raise NotImplementedError("no check matching '%s'" % args.check)
+except:
+    sys.stdout.write("error: something went wrong")
+    sys.exit(NAGIOS_UNKNOWN)
+
+sys.stdout.write("%s\n" % description)
+sys.exit(return_code)
